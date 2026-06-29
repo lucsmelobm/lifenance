@@ -1,62 +1,60 @@
 import { useState } from "react";
 import { storage, formatCurrency } from "../utils/storage";
 
-const GOAL_ICONS = ["✈️", "🏖️", "🏠", "🚗", "💻", "👗", "🎓", "💍", "🎮", "🌍", "📱", "🏋️"];
+const ICONS = ["✈️","🏖️","🏠","🚗","💻","👗","🎓","💍","🎮","🌍","📱","🏋️","🎵","📷","🍕"];
+
+function daysLeft(deadline) {
+  if (!deadline) return null;
+  return Math.ceil((new Date(deadline + "T12:00:00") - new Date()) / 86400000);
+}
 
 export default function Goals({ onUpdate }) {
-  const [goals, setGoals] = useState(storage.getGoals());
-  const [showForm, setShowForm] = useState(false);
-  const [depositGoal, setDepositGoal] = useState(null);
-  const [depositAmount, setDepositAmount] = useState("");
+  const [goals, setGoals] = useState(storage.getGoals);
+  const [showForm, setShowForm]   = useState(false);
+  const [depositId, setDepositId] = useState(null);
+  const [depositAmt, setDepositAmt] = useState("");
   const [form, setForm] = useState({ name: "", target: "", icon: "✈️", deadline: "" });
   const [error, setError] = useState("");
 
-  const save = (list) => {
-    storage.saveGoals(list);
-    setGoals(list);
-    onUpdate?.();
-  };
+  const save = (list) => { storage.saveGoals(list); setGoals(list); onUpdate?.(); };
 
   const handleAdd = () => {
     if (!form.name.trim()) return setError("Dá um nome para a meta!");
     if (!form.target || parseFloat(form.target) <= 0) return setError("Valor inválido.");
-    save([
-      ...goals,
-      { id: Date.now(), name: form.name, target: parseFloat(form.target), saved: 0, icon: form.icon, deadline: form.deadline },
-    ]);
+    save([...goals, { id: Date.now(), ...form, target: parseFloat(form.target), saved: 0 }]);
     setForm({ name: "", target: "", icon: "✈️", deadline: "" });
     setShowForm(false);
     setError("");
   };
 
   const handleDeposit = (id) => {
-    const amt = parseFloat(depositAmount);
+    const amt = parseFloat(depositAmt);
     if (!amt || amt <= 0) return;
     save(goals.map((g) => g.id === id ? { ...g, saved: g.saved + amt } : g));
-    setDepositGoal(null);
-    setDepositAmount("");
+    setDepositId(null);
+    setDepositAmt("");
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("Apagar essa meta?")) save(goals.filter((g) => g.id !== id));
-  };
-
-  const daysLeft = (deadline) => {
-    if (!deadline) return null;
-    const diff = Math.ceil((new Date(deadline + "T12:00:00") - new Date()) / 86400000);
-    return diff;
-  };
+  const card = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 20, padding: "18px 20px" };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
+    <div style={{ minHeight: "100svh", background: "var(--bg)", padding: "56px 20px 24px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <h2 className="text-lg font-bold text-gray-800">Minhas Metas 🎯</h2>
-          <p className="text-sm text-gray-500">Toda viagem começa com uma meta</p>
+          <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--text-1)" }}>Metas 🎯</p>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--text-2)" }}>Cada sonho começa com uma meta</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-purple-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl font-bold shadow hover:bg-purple-700 transition"
+          style={{
+            background: "var(--accent)", color: "var(--accent-fg)",
+            border: "none", borderRadius: 999,
+            width: 40, height: 40,
+            fontSize: 22, fontWeight: 700,
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 16px var(--shadow-accent)",
+          }}
         >
           {showForm ? "×" : "+"}
         </button>
@@ -64,52 +62,38 @@ export default function Goals({ onUpdate }) {
 
       {/* Form */}
       {showForm && (
-        <div className="card border-2 border-purple-200">
-          <h3 className="font-bold text-gray-700 mb-3">Nova Meta</h3>
-          {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-          <div className="space-y-3">
-            <input
-              className="input-field"
-              placeholder="Ex: Viagem com a família, Notebook novo..."
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <div className="flex gap-2">
-              <input
-                className="input-field flex-1"
-                placeholder="Valor total (R$)"
-                type="number"
-                min="0"
-                value={form.target}
-                onChange={(e) => setForm({ ...form, target: e.target.value })}
-              />
-              <input
-                className="input-field"
-                type="date"
-                title="Data limite (opcional)"
-                value={form.deadline}
-                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-              />
+        <div style={{ ...card, marginBottom: 16, borderColor: "var(--accent)" }}>
+          <p style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>Nova Meta</p>
+          {error && <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{error}</p>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input className="lf-input" placeholder="Nome da meta (ex: Viagem de avião)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input className="lf-input" type="number" placeholder="Valor (R$)" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} style={{ flex: 1 }} />
+              <input className="lf-input" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
             </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Escolha um ícone:</p>
-              <div className="flex flex-wrap gap-2">
-                {GOAL_ICONS.map((icon) => (
-                  <button
-                    key={icon}
-                    onClick={() => setForm({ ...form, icon })}
-                    className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center transition-all border-2 ${
-                      form.icon === icon ? "border-purple-500 bg-purple-50" : "border-transparent bg-gray-100"
-                    }`}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {ICONS.map((icon) => (
+                <button
+                  key={icon}
+                  onClick={() => setForm({ ...form, icon })}
+                  style={{
+                    width: 40, height: 40, borderRadius: 12, fontSize: 20,
+                    background: form.icon === icon ? "var(--accent)" : "var(--surface-2)",
+                    border: form.icon === icon ? "none" : "1px solid var(--border)",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  {icon}
+                </button>
+              ))}
             </div>
             <button
               onClick={handleAdd}
-              className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition"
+              style={{
+                background: "var(--accent)", color: "var(--accent-fg)",
+                border: "none", borderRadius: 14, padding: "14px",
+                fontSize: 15, fontWeight: 700, cursor: "pointer",
+              }}
             >
               Criar Meta
             </button>
@@ -119,93 +103,82 @@ export default function Goals({ onUpdate }) {
 
       {/* Goals list */}
       {goals.length === 0 ? (
-        <div className="card text-center py-10">
-          <p className="text-5xl mb-3">✈️</p>
-          <p className="text-gray-600 font-medium">Nenhuma meta ainda</p>
-          <p className="text-gray-400 text-sm mt-1">Cria sua primeira meta — a viagem de avião com a família!</p>
+        <div style={{ textAlign: "center", padding: "64px 0" }}>
+          <p style={{ fontSize: 48, margin: "0 0 12px" }}>✈️</p>
+          <p style={{ color: "var(--text-2)", fontWeight: 600, margin: "0 0 4px" }}>Nenhuma meta criada</p>
+          <p style={{ color: "var(--text-3)", fontSize: 13 }}>Cria a viagem de avião com a família como primeira meta!</p>
         </div>
       ) : (
-        goals.map((g) => {
-          const pct = Math.min(100, (g.saved / g.target) * 100);
-          const remaining = g.target - g.saved;
-          const days = daysLeft(g.deadline);
-          const done = pct >= 100;
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {goals.map((g) => {
+            const pct  = Math.min(100, (g.saved / g.target) * 100);
+            const done = pct >= 100;
+            const days = daysLeft(g.deadline);
+            const remaining = g.target - g.saved;
 
-          return (
-            <div key={g.id} className={`card border-l-4 ${done ? "border-green-500" : "border-purple-500"}`}>
-              <div className="flex items-start gap-3 mb-3">
-                <span className="text-3xl">{g.icon}</span>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <p className="font-bold text-gray-800">{g.name}</p>
-                    <button onClick={() => handleDelete(g.id)} className="text-gray-300 hover:text-red-400 text-lg ml-2">×</button>
-                  </div>
-                  {days !== null && (
-                    <p className={`text-xs ${days < 0 ? "text-red-500" : days < 30 ? "text-orange-500" : "text-gray-400"}`}>
-                      {days < 0 ? `Atrasou ${Math.abs(days)} dias` : days === 0 ? "É hoje! 🎉" : `${days} dias restantes`}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-2">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-500">Guardado: <strong className="text-gray-700">{formatCurrency(g.saved)}</strong></span>
-                  <span className="text-gray-500">Meta: <strong className="text-gray-700">{formatCurrency(g.target)}</strong></span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                  <div
-                    className="h-4 rounded-full transition-all duration-700 relative"
-                    style={{ width: `${pct}%`, backgroundColor: done ? "#2ECC71" : "#6C63FF" }}
-                  >
-                    {pct > 15 && (
-                      <span className="absolute right-2 top-0 text-xs text-white font-bold leading-4">
-                        {Math.round(pct)}%
-                      </span>
+            return (
+              <div key={g.id} style={{ ...card, borderLeft: `4px solid ${done ? "var(--green)" : "var(--accent)"}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 14 }}>
+                  <span style={{ fontSize: 32, marginRight: 12 }}>{g.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text-1)" }}>{g.name}</p>
+                    {days !== null && (
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: days < 0 ? "var(--red)" : days < 30 ? "#F59E0B" : "var(--text-2)" }}>
+                        {days < 0 ? `Atrasou ${Math.abs(days)}d` : days === 0 ? "É hoje! 🎉" : `${days} dias restantes`}
+                      </p>
                     )}
                   </div>
+                  <button onClick={() => save(goals.filter((x) => x.id !== g.id))} style={{ background: "none", border: "none", color: "var(--text-3)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
                 </div>
-              </div>
 
-              {done ? (
-                <p className="text-green-600 font-bold text-center py-1">🎉 Meta alcançada! Parabéns!</p>
-              ) : (
-                <div className="flex items-center gap-2 mt-2">
-                  {depositGoal === g.id ? (
-                    <>
-                      <input
-                        className="input-field flex-1 py-2"
-                        placeholder="Quanto guardar (R$)"
-                        type="number"
-                        min="0"
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleDeposit(g.id)}
-                        autoFocus
-                      />
-                      <button onClick={() => handleDeposit(g.id)} className="bg-green-500 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition">
-                        ✓
-                      </button>
-                      <button onClick={() => setDepositGoal(null)} className="text-gray-400 px-2 py-2 text-sm">
-                        ×
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-gray-500 flex-1">Faltam {formatCurrency(remaining)}</p>
-                      <button
-                        onClick={() => { setDepositGoal(g.id); setDepositAmount(""); }}
-                        className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-purple-200 transition"
-                      >
-                        + Guardar
-                      </button>
-                    </>
-                  )}
+                {/* Progress */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>Guardado: <strong style={{ color: "var(--text-1)" }}>{formatCurrency(g.saved)}</strong></span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: done ? "var(--green)" : "var(--accent-fg)" }}>{Math.round(pct)}%</span>
+                  </div>
+                  <div style={{ height: 10, borderRadius: 999, background: "var(--surface-2)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: done ? "var(--green)" : "var(--accent)", borderRadius: 999, transition: "width 0.6s ease" }} />
+                  </div>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-2)" }}>Meta: {formatCurrency(g.target)}</p>
                 </div>
-              )}
-            </div>
-          );
-        })
+
+                {done ? (
+                  <p style={{ textAlign: "center", color: "var(--green)", fontWeight: 700, margin: 0 }}>🎉 Meta alcançada! Parabéns!</p>
+                ) : depositId === g.id ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      className="lf-input"
+                      type="number"
+                      placeholder="Quanto guardar (R$)"
+                      value={depositAmt}
+                      onChange={(e) => setDepositAmt(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleDeposit(g.id)}
+                      autoFocus
+                      style={{ flex: 1 }}
+                    />
+                    <button onClick={() => handleDeposit(g.id)} style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: 12, padding: "0 16px", fontWeight: 700, cursor: "pointer" }}>✓</button>
+                    <button onClick={() => setDepositId(null)} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "0 12px", cursor: "pointer", color: "var(--text-2)" }}>×</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--text-2)" }}>Faltam {formatCurrency(remaining)}</p>
+                    <button
+                      onClick={() => { setDepositId(g.id); setDepositAmt(""); }}
+                      style={{
+                        background: "var(--accent)", color: "var(--accent-fg)",
+                        border: "none", borderRadius: 12, padding: "8px 16px",
+                        fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      }}
+                    >
+                      + Guardar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

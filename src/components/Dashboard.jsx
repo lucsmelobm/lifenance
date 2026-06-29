@@ -1,212 +1,242 @@
 import { useMemo } from "react";
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-} from "recharts";
-import { storage, formatCurrency, thisMonth, monthLabel } from "../utils/storage";
+import { useTheme } from "../context/ThemeContext";
+import { storage, formatCurrency, thisMonth } from "../utils/storage";
 import { CATEGORIES } from "../data/tips";
 
-const RADIAN = Math.PI / 180;
-const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  if (percent < 0.05) return null;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+function Blob() {
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
+    <div style={{ position: "relative", width: 290, height: 190, margin: "0 auto", filter: "drop-shadow(0 24px 48px rgba(100,210,180,0.28))" }}>
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(135deg, #A8E063 0%, #56CCF2 55%, #2D9EE0 100%)",
+        borderRadius: "58% 42% 65% 35% / 52% 62% 38% 48%",
+        opacity: 0.92,
+      }} />
+      <div style={{
+        position: "absolute",
+        top: -12, right: -8,
+        width: 180, height: 145,
+        background: "linear-gradient(135deg, #2F80ED 0%, #6FCFEB 100%)",
+        borderRadius: "42% 58% 32% 68% / 58% 38% 62% 42%",
+        opacity: 0.55,
+      }} />
+      <div style={{
+        position: "absolute",
+        bottom: -4, left: 24,
+        width: 110, height: 88,
+        background: "linear-gradient(135deg, #C5F135 0%, #56D0A0 100%)",
+        borderRadius: "50% 50% 38% 62% / 62% 44% 56% 38%",
+        opacity: 0.48,
+      }} />
+    </div>
   );
-};
+}
 
-export default function Dashboard() {
-  const profile = storage.getProfile();
+function SunIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+function MoonIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+    </svg>
+  );
+}
+
+export default function Dashboard({ onAdd, onViewAll }) {
+  const { dark, toggle } = useTheme();
+  const profile  = storage.getProfile();
   const expenses = storage.getExpenses();
-  const checkins = storage.getCheckins();
-  const goals = storage.getGoals();
-  const month = thisMonth();
+  const month    = thisMonth();
 
   const monthExpenses = useMemo(
-    () => expenses.filter((e) => e.date.startsWith(month)),
+    () => expenses.filter((e) => e.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date)),
     [expenses, month]
   );
+  const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const available  = profile.income - totalSpent;
+  const recentFive = useMemo(
+    () => [...expenses].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5),
+    [expenses]
+  );
 
-  const totalMonth = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const savingTarget = profile.income * (profile.savingGoalPct / 100);
-  const available = profile.income - totalMonth;
-  const savingPct = Math.max(0, Math.min(100, (available / savingTarget) * 100));
-
-  const byCategory = useMemo(() => {
-    const map = {};
-    monthExpenses.forEach((e) => {
-      map[e.category] = (map[e.category] || 0) + e.amount;
-    });
-    return CATEGORIES.filter((c) => map[c.id]).map((c) => ({
-      name: c.label,
-      value: map[c.id],
-      color: c.color,
-      icon: c.icon,
-    }));
-  }, [monthExpenses]);
-
-  const last6Months = useMemo(() => {
-    const result = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const total = expenses
-        .filter((e) => e.date.startsWith(ym))
-        .reduce((s, e) => s + e.amount, 0);
-      result.push({ name: monthLabel(ym), gastos: total, renda: profile.income });
-    }
-    return result;
-  }, [expenses, profile.income]);
-
-  const streak = useMemo(() => {
-    if (!checkins.length) return 0;
-    const sorted = [...checkins].sort((a, b) => b.date.localeCompare(a.date));
-    let count = 0;
-    let cursor = new Date();
-    for (const c of sorted) {
-      const cDate = new Date(c.date + "T12:00:00");
-      const diff = Math.round((cursor - cDate) / 86400000);
-      if (diff <= 1) { count++; cursor = cDate; }
-      else break;
-    }
-    return count;
-  }, [checkins]);
-
-  const healthScore = useMemo(() => {
-    let score = 0;
-    if (totalMonth <= profile.income * 0.5) score += 30;
-    else if (totalMonth <= profile.income * 0.8) score += 15;
-    if (available >= savingTarget) score += 30;
-    else if (available > 0) score += 15;
-    score += Math.min(30, streak * 2);
-    if (goals.some((g) => g.saved >= g.target)) score += 10;
-    return Math.min(100, score);
-  }, [totalMonth, profile.income, available, savingTarget, streak, goals]);
-
-  const scoreColor = healthScore >= 70 ? "#2ECC71" : healthScore >= 40 ? "#F39C12" : "#E74C3C";
-  const scoreLabel = healthScore >= 70 ? "Ótimo! 🚀" : healthScore >= 40 ? "Melhorando 💪" : "Atenção! 🔥";
+  const getCat = (id) => CATEGORIES.find((c) => c.id === id) || CATEGORIES.at(-1);
 
   return (
-    <div className="space-y-4">
-      {/* Header cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card bg-gradient-to-br from-purple-600 to-purple-800 text-white">
-          <p className="text-xs opacity-75">Renda mensal</p>
-          <p className="text-xl font-bold">{formatCurrency(profile.income)}</p>
-        </div>
-        <div className={`card text-white ${totalMonth > profile.income ? "bg-gradient-to-br from-red-500 to-red-700" : "bg-gradient-to-br from-indigo-500 to-indigo-700"}`}>
-          <p className="text-xs opacity-75">Gastos do mês</p>
-          <p className="text-xl font-bold">{formatCurrency(totalMonth)}</p>
-        </div>
-        <div className={`card text-white ${available < 0 ? "bg-gradient-to-br from-red-500 to-red-700" : "bg-gradient-to-br from-emerald-500 to-emerald-700"}`}>
-          <p className="text-xs opacity-75">Disponível agora</p>
-          <p className="text-xl font-bold">{formatCurrency(available)}</p>
-        </div>
-        <div className="card bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-          <p className="text-xs opacity-75">Meta poupança</p>
-          <p className="text-xl font-bold">{formatCurrency(savingTarget)}</p>
-        </div>
-      </div>
+    <div style={{ minHeight: "100svh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
-      {/* Health score */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="font-bold text-gray-700">Saúde Financeira</h3>
-          <span className="text-sm font-bold" style={{ color: scoreColor }}>{scoreLabel}</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-4 mb-1">
-          <div
-            className="h-4 rounded-full transition-all duration-700"
-            style={{ width: `${healthScore}%`, backgroundColor: scoreColor }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>{healthScore}/100 pts</span>
-          <span>🔥 {streak} dias seguidos</span>
-        </div>
-      </div>
+      {/* ── TOP ZONE ── */}
+      <div style={{ padding: "56px 24px 0", flexShrink: 0 }}>
 
-      {/* Saving progress */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="font-bold text-gray-700">Meta de Poupança ({profile.savingGoalPct}%)</h3>
-          <span className="text-sm text-gray-500">{Math.round(savingPct)}%</span>
+        {/* Header row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 36 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18,
+            }}>
+              👤
+            </div>
+            <div>
+              <p style={{ fontSize: 12, color: "var(--text-2)", margin: 0 }}>Bem-vindo de volta</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-1)", margin: 0 }}>{profile.name}</p>
+            </div>
+          </div>
+          <button
+            onClick={toggle}
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              width: 40, height: 40,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+              color: "var(--text-2)",
+            }}
+          >
+            {dark ? <SunIcon /> : <MoonIcon />}
+          </button>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div
-            className="h-3 rounded-full transition-all duration-700"
-            style={{ width: `${savingPct}%`, backgroundColor: savingPct >= 100 ? "#2ECC71" : "#6C63FF" }}
-          />
-        </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {available >= savingTarget
-            ? `✅ Você pode poupar ${formatCurrency(available)} este mês!`
-            : `Faltam ${formatCurrency(savingTarget - available)} para atingir a meta`}
+
+        {/* Balance caption */}
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-2)", marginBottom: 8, lineHeight: 1.4 }}>
+          Você gastou{" "}
+          <span style={{ color: "var(--red)", fontWeight: 600 }}>{formatCurrency(totalSpent)}</span>
+          {" "}este mês • saldo disponível
         </p>
+
+        {/* Big balance */}
+        <p style={{
+          textAlign: "center",
+          fontSize: available < 0 ? 40 : 52,
+          fontWeight: 800,
+          letterSpacing: "-2px",
+          color: available < 0 ? "var(--red)" : "var(--text-1)",
+          lineHeight: 1.05,
+          marginBottom: 20,
+        }}>
+          {formatCurrency(available)}
+        </p>
+
+        {/* Blob */}
+        <Blob />
       </div>
 
-      {/* Pie chart */}
-      {byCategory.length > 0 && (
-        <div className="card">
-          <h3 className="font-bold text-gray-700 mb-3">Gastos por Categoria</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={byCategory}
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                dataKey="value"
-                labelLine={false}
-                label={renderLabel}
+      {/* ── BOTTOM PANEL ── */}
+      <div style={{
+        flex: 1,
+        background: "var(--surface)",
+        borderRadius: "28px 28px 0 0",
+        borderTop: "1px solid var(--border)",
+        padding: "24px 20px 16px",
+        marginTop: 12,
+        overflowY: "auto",
+      }} className="no-scrollbar">
+
+        {/* Panel header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <p style={{ fontSize: 18, fontWeight: 700, color: "var(--text-1)", margin: 0 }}>
+            Transações Recentes
+          </p>
+          <button
+            onClick={onViewAll}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 13, fontWeight: 600,
+              color: "var(--accent-fg)",
+              background: "var(--accent)",
+              padding: "5px 12px",
+              borderRadius: 999,
+              letterSpacing: "-0.2px",
+            }}
+          >
+            Ver todas →
+          </button>
+        </div>
+
+        {/* Transaction list */}
+        {recentFive.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <p style={{ fontSize: 40, margin: "0 0 12px" }}>💸</p>
+            <p style={{ color: "var(--text-2)", fontWeight: 500, margin: "0 0 4px" }}>Nenhum gasto ainda</p>
+            <p style={{ color: "var(--text-3)", fontSize: 13, margin: 0 }}>Toca em "Lançar" para começar</p>
+          </div>
+        ) : (
+          recentFive.map((e, i) => {
+            const cat = getCat(e.category);
+            return (
+              <div
+                key={e.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "14px 0",
+                  borderBottom: i < recentFive.length - 1 ? "1px solid var(--border)" : "none",
+                }}
               >
-                {byCategory.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v) => formatCurrency(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-1 mt-2">
-            {byCategory.map((c) => (
-              <div key={c.name} className="flex items-center gap-1 text-xs text-gray-600">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
-                <span>{c.icon} {c.name}</span>
-                <span className="ml-auto font-medium">{formatCurrency(c.value)}</span>
+                <div style={{
+                  width: 46, height: 46, borderRadius: 14,
+                  background: cat.color + "22",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 22, flexShrink: 0, marginRight: 14,
+                }}>
+                  {cat.icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {e.description}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--text-2)", marginTop: 2 }}>
+                    {cat.label} • {e.date.split("-").reverse().join("/")}
+                  </p>
+                </div>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--red)", flexShrink: 0, marginLeft: 8 }}>
+                  -{formatCurrency(e.amount)}
+                </p>
               </div>
-            ))}
+            );
+          })
+        )}
+
+        {/* Quick stats */}
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <div style={{
+            flex: 1, background: "var(--surface-2)",
+            borderRadius: 16, padding: "14px 16px",
+            border: "1px solid var(--border)",
+          }}>
+            <p style={{ margin: "0 0 4px", fontSize: 11, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5 }}>Renda</p>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--green)" }}>{formatCurrency(profile.income)}</p>
+          </div>
+          <div style={{
+            flex: 1, background: "var(--surface-2)",
+            borderRadius: 16, padding: "14px 16px",
+            border: "1px solid var(--border)",
+          }}>
+            <p style={{ margin: "0 0 4px", fontSize: 11, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5 }}>Gastos</p>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--red)" }}>{formatCurrency(totalSpent)}</p>
+          </div>
+          <div style={{
+            flex: 1, background: "var(--surface-2)",
+            borderRadius: 16, padding: "14px 16px",
+            border: "1px solid var(--border)",
+          }}>
+            <p style={{ margin: "0 0 4px", fontSize: 11, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.5 }}>Meta</p>
+            <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text-1)" }}>
+              {profile.savingGoalPct}%
+            </p>
           </div>
         </div>
-      )}
-
-      {/* Bar chart */}
-      <div className="card">
-        <h3 className="font-bold text-gray-700 mb-3">Últimos 6 Meses</h3>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={last6Months} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v/1000}k`} />
-            <Tooltip formatter={(v) => formatCurrency(v)} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="renda" fill="#6C63FF" name="Renda" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="gastos" fill="#FF6B6B" name="Gastos" radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
-
-      {byCategory.length === 0 && (
-        <div className="card text-center py-8">
-          <p className="text-4xl mb-3">💸</p>
-          <p className="text-gray-500 font-medium">Nenhum gasto registrado este mês</p>
-          <p className="text-gray-400 text-sm mt-1">Vá em "Gastos" e adicione seu primeiro lançamento!</p>
-        </div>
-      )}
     </div>
   );
 }

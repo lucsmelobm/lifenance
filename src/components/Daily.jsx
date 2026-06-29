@@ -3,152 +3,143 @@ import { storage, today } from "../utils/storage";
 import { TIPS } from "../data/tips";
 
 const HABITS = [
-  { id: "anotar", label: "Anotei todos meus gastos de hoje", icon: "📝" },
-  { id: "nao_impulso", label: "Não fiz compras por impulso", icon: "🛑" },
-  { id: "meta", label: "Pensei na minha meta do dia", icon: "🎯" },
-  { id: "dica", label: "Li a dica financeira de hoje", icon: "💡" },
+  { id: "anotar",     label: "Anotei todos meus gastos de hoje", icon: "📝" },
+  { id: "impulso",    label: "Não fiz compras por impulso",      icon: "🛑" },
+  { id: "meta",       label: "Pensei na minha meta do dia",      icon: "🎯" },
+  { id: "dica",       label: "Li a dica financeira de hoje",     icon: "💡" },
 ];
 
+const DAY_NAMES = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+function calcStreak(checkins) {
+  if (!checkins.length) return 0;
+  const sorted = [...checkins].sort((a, b) => b.date.localeCompare(a.date));
+  let count = 0;
+  let cursor = new Date();
+  for (const c of sorted) {
+    const cDate = new Date(c.date + "T12:00:00");
+    const diff = Math.round((cursor - cDate) / 86400000);
+    if (diff <= 1) { count++; cursor = cDate; } else break;
+  }
+  return count;
+}
+
 export default function Daily({ onUpdate }) {
-  const [checkins, setCheckins] = useState(storage.getCheckins());
-  const [tipIndex, setTipIndex] = useState(() => {
-    const d = new Date();
-    return (d.getDate() + d.getMonth() * 3) % TIPS.length;
-  });
-  const [showFullTip, setShowFullTip] = useState(false);
+  const [checkins, setCheckins] = useState(storage.getCheckins);
+  const [tipIdx, setTipIdx] = useState(() => (new Date().getDate() + new Date().getMonth() * 3) % TIPS.length);
+  const [expanded, setExpanded] = useState(false);
 
   const todayStr = today();
-  const todayCheckin = checkins.find((c) => c.date === todayStr) || { date: todayStr, habits: [] };
-  const alreadyCompleted = todayCheckin.habits || [];
+  const todayData = checkins.find((c) => c.date === todayStr) || { date: todayStr, habits: [] };
+  const done = todayData.habits;
 
-  const streak = useMemo(() => {
-    if (!checkins.length) return 0;
-    const sorted = [...checkins].sort((a, b) => b.date.localeCompare(a.date));
-    let count = 0;
-    let cursor = new Date();
-    for (const c of sorted) {
-      const cDate = new Date(c.date + "T12:00:00");
-      const diff = Math.round((cursor - cDate) / 86400000);
-      if (diff <= 1) { count++; cursor = cDate; }
-      else break;
-    }
-    return count;
-  }, [checkins]);
-
-  const toggleHabit = (id) => {
-    const updated = alreadyCompleted.includes(id)
-      ? alreadyCompleted.filter((h) => h !== id)
-      : [...alreadyCompleted, id];
-
-    const newCheckin = { date: todayStr, habits: updated };
-    const newCheckins = [
-      ...checkins.filter((c) => c.date !== todayStr),
-      newCheckin,
-    ];
-    storage.saveCheckins(newCheckins);
-    setCheckins(newCheckins);
+  const toggle = (id) => {
+    const updated = done.includes(id) ? done.filter((h) => h !== id) : [...done, id];
+    const next = [...checkins.filter((c) => c.date !== todayStr), { date: todayStr, habits: updated }];
+    storage.saveCheckins(next);
+    setCheckins(next);
     onUpdate?.();
   };
 
-  const tip = TIPS[tipIndex];
-  const completedCount = alreadyCompleted.length;
-  const totalHabits = HABITS.length;
-  const pct = Math.round((completedCount / totalHabits) * 100);
+  const streak = useMemo(() => calcStreak(checkins), [checkins]);
+  const tip = TIPS[tipIdx];
+  const pct = Math.round((done.length / HABITS.length) * 100);
 
   const last7 = useMemo(() => {
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
+    return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
-      d.setDate(d.getDate() - i);
+      d.setDate(d.getDate() - (6 - i));
       const dateStr = d.toISOString().split("T")[0];
       const check = checkins.find((c) => c.date === dateStr);
-      const weekdays = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-      days.push({
-        label: i === 0 ? "Hoje" : weekdays[d.getDay()],
-        completed: check ? check.habits.length : 0,
-        total: totalHabits,
-        date: dateStr,
-      });
-    }
-    return days;
-  }, [checkins, totalHabits]);
+      return {
+        label: i === 6 ? "Hoje" : DAY_NAMES[d.getDay()],
+        count: check?.habits.length ?? 0,
+        dateStr,
+      };
+    });
+  }, [checkins]);
+
+  const card = { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 20, padding: "20px" };
 
   return (
-    <div className="space-y-4">
+    <div style={{ minHeight: "100svh", background: "var(--bg)", padding: "56px 20px 24px" }}>
+      <p style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 800, color: "var(--text-1)" }}>Diário ✅</p>
+
       {/* Streak */}
-      <div className="card bg-gradient-to-r from-orange-400 to-pink-500 text-white text-center py-5">
-        <p className="text-5xl font-black">{streak}</p>
-        <p className="text-sm opacity-90 mt-1">
-          {streak === 0 ? "Comece hoje sua sequência!" : streak === 1 ? "dia seguido 🔥 Não quebre!" : `dias seguidos 🔥 Incrível!`}
+      <div style={{ ...card, background: "linear-gradient(135deg, #FF6B35, #E91E63)", border: "none", textAlign: "center", marginBottom: 16, padding: "28px 20px" }}>
+        <p style={{ margin: 0, fontSize: 64, fontWeight: 900, color: "#fff", lineHeight: 1 }}>{streak}</p>
+        <p style={{ margin: "6px 0 0", fontSize: 14, color: "rgba(255,255,255,0.85)" }}>
+          {streak === 0 ? "Comece hoje — não quebre a sequência!" : streak === 1 ? "dia seguido 🔥 Continue!" : `dias seguidos 🔥 Você está arrasando!`}
         </p>
       </div>
 
-      {/* Today progress */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-bold text-gray-800">Check-in de Hoje</h3>
-          <span className="text-sm font-bold text-purple-600">{completedCount}/{totalHabits}</span>
+      {/* Check-in */}
+      <div style={{ ...card, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>Check-in de Hoje</p>
+          <span style={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? "var(--green)" : "var(--text-2)" }}>{done.length}/{HABITS.length}</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-          <div
-            className="h-3 rounded-full transition-all duration-500"
-            style={{ width: `${pct}%`, backgroundColor: pct === 100 ? "#2ECC71" : "#6C63FF" }}
-          />
+
+        {/* Progress bar */}
+        <div style={{ height: 8, borderRadius: 999, background: "var(--surface-2)", marginBottom: 16, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: pct === 100 ? "var(--green)" : "var(--accent)", borderRadius: 999, transition: "width 0.4s ease" }} />
         </div>
-        <div className="space-y-2">
-          {HABITS.map((h) => {
-            const done = alreadyCompleted.includes(h.id);
-            return (
-              <button
-                key={h.id}
-                onClick={() => toggleHabit(h.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                  done
-                    ? "border-green-300 bg-green-50 text-green-700"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-purple-300"
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                  done ? "bg-green-500 border-green-500" : "border-gray-300"
-                }`}>
-                  {done && <span className="text-white text-xs">✓</span>}
-                </div>
-                <span className="text-lg">{h.icon}</span>
-                <span className="text-sm font-medium">{h.label}</span>
-              </button>
-            );
-          })}
-        </div>
+
+        {HABITS.map((h) => {
+          const checked = done.includes(h.id);
+          return (
+            <button
+              key={h.id}
+              onClick={() => toggle(h.id)}
+              style={{
+                width: "100%",
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "13px 14px",
+                background: checked ? "rgba(74,222,128,0.1)" : "var(--surface-2)",
+                border: checked ? "1.5px solid var(--green)" : "1.5px solid var(--border)",
+                borderRadius: 14,
+                cursor: "pointer",
+                marginBottom: 8,
+                textAlign: "left",
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{
+                width: 24, height: 24, borderRadius: "50%",
+                border: checked ? "none" : "2px solid var(--border-strong)",
+                background: checked ? "var(--green)" : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                {checked && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+              </div>
+              <span style={{ fontSize: 18 }}>{h.icon}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-1)" }}>{h.label}</span>
+            </button>
+          );
+        })}
+
         {pct === 100 && (
-          <div className="mt-3 p-3 bg-green-50 rounded-xl text-center">
-            <p className="text-green-700 font-bold">🎉 Check-in completo! Você arrasoooou hoje!</p>
+          <div style={{ textAlign: "center", padding: "8px 0 0", color: "var(--green)", fontWeight: 700 }}>
+            🎉 Check-in completo! Você é incrível!
           </div>
         )}
       </div>
 
-      {/* 7-day view */}
-      <div className="card">
-        <h3 className="font-bold text-gray-800 mb-3">Últimos 7 Dias</h3>
-        <div className="flex gap-1 justify-between">
+      {/* 7-day chart */}
+      <div style={{ ...card, marginBottom: 16 }}>
+        <p style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>Últimos 7 Dias</p>
+        <div style={{ display: "flex", gap: 6, alignItems: "flex-end", justifyContent: "space-between" }}>
           {last7.map((d) => {
-            const p = d.total > 0 ? d.completed / d.total : 0;
+            const ratio = HABITS.length > 0 ? d.count / HABITS.length : 0;
+            const color = ratio === 1 ? "var(--green)" : ratio >= 0.5 ? "var(--accent)" : ratio > 0 ? "#F59E0B" : "var(--surface-2)";
             const isToday = d.label === "Hoje";
             return (
-              <div key={d.date} className="flex flex-col items-center gap-1 flex-1">
-                <div className="relative w-full flex justify-center">
-                  <div className="w-8 bg-gray-100 rounded-full overflow-hidden" style={{ height: 60 }}>
-                    <div
-                      className="absolute bottom-0 w-full rounded-full transition-all duration-500"
-                      style={{
-                        height: `${p * 100}%`,
-                        backgroundColor: p === 1 ? "#2ECC71" : p > 0.5 ? "#6C63FF" : p > 0 ? "#F39C12" : "#E5E7EB",
-                        width: 32,
-                      }}
-                    />
-                  </div>
+              <div key={d.dateStr} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ width: "100%", height: 52, background: "var(--surface-2)", borderRadius: 8, overflow: "hidden", display: "flex", alignItems: "flex-end" }}>
+                  <div style={{ width: "100%", height: `${ratio * 100}%`, background: color, borderRadius: 8, transition: "height 0.5s ease" }} />
                 </div>
-                <p className={`text-xs font-medium ${isToday ? "text-purple-600" : "text-gray-500"}`}>{d.label}</p>
-                <p className="text-xs text-gray-400">{d.completed}/{d.total}</p>
+                <span style={{ fontSize: 10, fontWeight: isToday ? 700 : 400, color: isToday ? "var(--text-1)" : "var(--text-2)" }}>{d.label}</span>
               </div>
             );
           })}
@@ -156,56 +147,37 @@ export default function Daily({ onUpdate }) {
       </div>
 
       {/* Daily tip */}
-      <div className="card border-l-4 border-purple-500">
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{tip.icon}</span>
+      <div style={{ ...card, borderLeft: "4px solid var(--accent)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 26 }}>{tip.icon}</span>
             <div>
-              <p className="text-xs text-purple-500 font-medium uppercase tracking-wide">{tip.category}</p>
-              <h3 className="font-bold text-gray-800">{tip.title}</h3>
+              <p style={{ margin: 0, fontSize: 11, color: "var(--accent-fg)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, background: "var(--accent)", padding: "2px 8px", borderRadius: 999, display: "inline-block" }}>{tip.category}</p>
+              <p style={{ margin: "4px 0 0", fontSize: 15, fontWeight: 700, color: "var(--text-1)" }}>{tip.title}</p>
             </div>
           </div>
-          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-            tip.impact === "Crítico" ? "bg-red-100 text-red-600" :
-            tip.impact === "Transformador" ? "bg-purple-100 text-purple-600" :
-            tip.impact === "Alto" ? "bg-green-100 text-green-600" : "bg-yellow-100 text-yellow-600"
-          }`}>
-            {tip.impact}
-          </span>
         </div>
 
-        <p className="text-gray-600 text-sm leading-relaxed">
-          {showFullTip ? tip.tip : tip.tip.slice(0, 120) + (tip.tip.length > 120 ? "..." : "")}
+        <p style={{ margin: 0, fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
+          {expanded ? tip.tip : tip.tip.slice(0, 130) + (tip.tip.length > 130 ? "..." : "")}
         </p>
-        {tip.tip.length > 120 && (
-          <button
-            onClick={() => setShowFullTip(!showFullTip)}
-            className="text-purple-500 text-sm mt-1 font-medium"
-          >
-            {showFullTip ? "Mostrar menos" : "Ler mais"}
+
+        {tip.tip.length > 130 && (
+          <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-1)", fontSize: 13, fontWeight: 600, padding: "6px 0 0" }}>
+            {expanded ? "Ver menos" : "Ler mais"}
           </button>
         )}
 
-        {showFullTip && (
-          <div className="mt-3 p-3 bg-purple-50 rounded-xl">
-            <p className="text-xs text-purple-600 font-bold uppercase mb-1">Ação de hoje:</p>
-            <p className="text-sm text-purple-800">{tip.action}</p>
+        {expanded && (
+          <div style={{ background: "var(--surface-2)", borderRadius: 12, padding: "12px 14px", marginTop: 10 }}>
+            <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase" }}>Ação de hoje:</p>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--text-1)" }}>{tip.action}</p>
           </div>
         )}
 
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => { setTipIndex((tipIndex - 1 + TIPS.length) % TIPS.length); setShowFullTip(false); }}
-            className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
-          >
-            ← Anterior
-          </button>
-          <button
-            onClick={() => { setTipIndex((tipIndex + 1) % TIPS.length); setShowFullTip(false); }}
-            className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition"
-          >
-            Próxima →
-          </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <button onClick={() => { setTipIdx((tipIdx - 1 + TIPS.length) % TIPS.length); setExpanded(false); }} style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "10px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "var(--text-1)" }}>← Anterior</button>
+          <button onClick={() => { setTipIdx((tipIdx + 1) % TIPS.length); setExpanded(false); }} style={{ flex: 1, background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 12, padding: "10px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Próxima →</button>
         </div>
       </div>
     </div>
