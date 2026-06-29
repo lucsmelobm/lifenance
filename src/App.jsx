@@ -23,10 +23,10 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-          <span className="text-white text-sm font-black">FL</span>
+          <span className="text-white text-sm font-black">LF</span>
         </div>
         <div>
-          <h1 className="font-black text-gray-800 leading-none">Finanças Livre</h1>
+          <h1 className="font-black text-gray-800 leading-none">Lifenance</h1>
           <p className="text-xs text-gray-400">Controle. Liberdade. Sonhos.</p>
         </div>
       </header>
