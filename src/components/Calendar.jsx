@@ -7,6 +7,87 @@ import { CATEGORIES } from "../data/tips";
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
+function DayPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative", flex: 1 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          background: "var(--input-bg)",
+          border: `1.5px solid ${open ? "var(--accent)" : "var(--border)"}`,
+          borderRadius: 14,
+          padding: "12px 15px",
+          fontSize: 13,
+          color: value ? "var(--text-1)" : "var(--text-3)",
+          textAlign: "left",
+          cursor: "pointer",
+          boxShadow: open ? "0 0 0 3px rgba(184,242,60,0.15)" : "none",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span>{value ? `Dia ${value} de cada mês` : "Dia de vencimento"}</span>
+        <span style={{ fontSize: 11, color: "var(--text-3)" }}>▾</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            zIndex: 200,
+            background: "var(--surface)",
+            border: "1.5px solid var(--accent)",
+            borderRadius: 16,
+            padding: 12,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          }}
+        >
+          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+            Selecione o dia de vencimento
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => { onChange(d); setOpen(false); }}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: 8,
+                  border: "none",
+                  background: value === d ? "var(--accent)" : "var(--surface-2)",
+                  color: value === d ? "var(--accent-fg)" : "var(--text-1)",
+                  fontWeight: value === d ? 800 : 500,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            style={{ width: "100%", marginTop: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px", fontSize: 12, color: "var(--text-2)", cursor: "pointer", fontWeight: 600 }}
+          >
+            Fechar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function pad(n) { return String(n).padStart(2, "0"); }
 function ymd(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
 function toDateParts(date) { const d = new Date(date + "T12:00:00"); return [d.getFullYear(), d.getMonth(), d.getDate()]; }
@@ -345,8 +426,8 @@ export default function Calendar({ isCloud, onAddExpense }) {
                 <input className="lf-input" placeholder="Nome da fatura (ex: Cartão Nubank)" value={billForm.name} onChange={(e) => setBillForm({ ...billForm, name: e.target.value })} style={{ fontSize: 13 }} />
                 <div style={{ display: "flex", gap: 8 }}>
                   <input className="lf-input" type="number" placeholder="Valor R$" value={billForm.amount} onChange={(e) => setBillForm({ ...billForm, amount: e.target.value })} style={{ flex: 1, fontSize: 13 }} />
-                  <input className="lf-input" type="number" placeholder="Dia (1-31)" value={billForm.due_day} onChange={(e) => setBillForm({ ...billForm, due_day: e.target.value })} style={{ width: 90, fontSize: 13 }} />
                 </div>
+                <DayPicker value={billForm.due_day} onChange={(d) => setBillForm({ ...billForm, due_day: d })} />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={addBill} style={{ flex: 1, background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Salvar fatura</button>
                   <button onClick={() => setShowBillForm(false)} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", cursor: "pointer", color: "var(--text-2)" }}>×</button>
