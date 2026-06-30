@@ -1,33 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
+const SB_URL = "https://plsajtmjukdtmhzvoacv.supabase.co";
+const SB_KEY = "sb_publishable_RErFDihYnJ18QhFiqrrcGg_lW4md2AY";
+
 let _sb = null;
 
 export function getSb() {
-  if (_sb) return _sb;
-  const url = localStorage.getItem("lf_sb_url");
-  const key = localStorage.getItem("lf_sb_key");
-  if (url && key) _sb = createClient(url, key);
+  if (!_sb) _sb = createClient(SB_URL, SB_KEY);
   return _sb;
 }
 
-export function configure(url, key) {
-  const trimUrl = url.trim();
-  const trimKey = key.trim();
-  localStorage.setItem("lf_sb_url", trimUrl);
-  localStorage.setItem("lf_sb_key", trimKey);
-  _sb = createClient(trimUrl, trimKey);
-  return _sb;
-}
-
-export function clearConfig() {
-  localStorage.removeItem("lf_sb_url");
-  localStorage.removeItem("lf_sb_key");
-  _sb = null;
-}
-
-export function isConfigured() {
-  return !!(localStorage.getItem("lf_sb_url") && localStorage.getItem("lf_sb_key"));
-}
+export function configure() { return getSb(); }
+export function clearConfig() { _sb = null; }
+export function isConfigured() { return true; }
 
 // SQL to paste in Supabase SQL Editor
 export const SETUP_SQL = `

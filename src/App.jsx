@@ -91,25 +91,6 @@ function AuthGate() {
 
 /* ── ROOT ── */
 function AppRoot() {
-  const [configured, setConfigured] = useState(isConfigured);
-  const [mode,       setMode]       = useState(() => localStorage.getItem("lf_mode") || "");
-
-  const handleSetupDone = () => {
-    setConfigured(isConfigured());
-    setMode(localStorage.getItem("lf_mode") || "cloud");
-  };
-
-  // Not configured and no mode chosen → show setup
-  if (!configured && mode !== "local") {
-    return <Setup onDone={handleSetupDone} />;
-  }
-
-  // Local mode
-  if (mode === "local" || (!configured && mode === "local")) {
-    return <MainApp isCloud={false} />;
-  }
-
-  // Cloud mode — wrap with AuthProvider
   return (
     <AuthProvider>
       <AuthGate />
