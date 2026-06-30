@@ -8,73 +8,81 @@ const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","A
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
 function DayPicker({ value, onChange }) {
-  const [open, setOpen] = useState(false);
+  const now = new Date();
+  const [open, setOpen]           = useState(false);
+  const [viewYear, setViewYear]   = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const goPrev = (e) => { e.stopPropagation(); if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); } else setViewMonth(m => m - 1); };
+  const goNext = (e) => { e.stopPropagation(); if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); } else setViewMonth(m => m + 1); };
+
+  const btnBase = { background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 8, color: "var(--text-1)", fontSize: 16 };
+
   return (
     <div style={{ position: "relative", flex: 1 }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         style={{
-          width: "100%",
-          background: "var(--input-bg)",
+          width: "100%", background: "var(--input-bg)",
           border: `1.5px solid ${open ? "var(--accent)" : "var(--border)"}`,
-          borderRadius: 14,
-          padding: "12px 15px",
-          fontSize: 13,
-          color: value ? "var(--text-1)" : "var(--text-3)",
-          textAlign: "left",
-          cursor: "pointer",
-          boxShadow: open ? "0 0 0 3px rgba(184,242,60,0.15)" : "none",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          borderRadius: 14, padding: "12px 15px", fontSize: 13,
+          color: value ? "var(--text-1)" : "var(--text-3)", textAlign: "left",
+          cursor: "pointer", boxShadow: open ? "0 0 0 3px rgba(184,242,60,0.15)" : "none",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
         }}
       >
-        <span>{value ? `Dia ${value} de cada mês` : "Dia de vencimento"}</span>
+        <span>{value ? `Dia ${value} de cada mês` : "Selecionar dia de vencimento"}</span>
         <span style={{ fontSize: 11, color: "var(--text-3)" }}>▾</span>
       </button>
+
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            zIndex: 200,
-            background: "var(--surface)",
-            border: "1.5px solid var(--accent)",
-            borderRadius: 16,
-            padding: 12,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          }}
-        >
-          <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>
-            Selecione o dia de vencimento
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 200,
+          background: "var(--surface)", border: "1.5px solid var(--accent)",
+          borderRadius: 18, padding: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+        }}>
+          {/* Month/year navigation */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <button style={btnBase} onClick={goPrev}>‹</button>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>
+              {MONTHS[viewMonth]} {viewYear}
+            </span>
+            <button style={btnBase} onClick={goNext}>›</button>
+          </div>
+
+          {/* Weekday headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 4 }}>
+            {WEEKDAYS.map((d) => (
+              <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "var(--text-3)", padding: "2px 0" }}>{d}</div>
+            ))}
+          </div>
+
+          {/* Day cells */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
+            {cells.map((d, i) => d ? (
               <button
-                key={d}
+                key={i}
                 type="button"
                 onClick={() => { onChange(d); setOpen(false); }}
                 style={{
-                  aspectRatio: "1",
-                  borderRadius: 8,
-                  border: "none",
+                  aspectRatio: "1", borderRadius: 8, border: "none",
                   background: value === d ? "var(--accent)" : "var(--surface-2)",
                   color: value === d ? "var(--accent-fg)" : "var(--text-1)",
-                  fontWeight: value === d ? 800 : 500,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  fontWeight: value === d ? 800 : 400,
+                  fontSize: 12, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
                 }}
-              >
-                {d}
-              </button>
-            ))}
+              >{d}</button>
+            ) : <div key={i} />)}
           </div>
+
           <button
             type="button"
             onClick={() => setOpen(false)}

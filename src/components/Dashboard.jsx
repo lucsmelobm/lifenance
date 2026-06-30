@@ -1,7 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "../context/ThemeContext";
-import { storage, formatCurrency, thisMonth } from "../utils/storage";
+import { useAuth } from "../context/AuthContext";
+import { storage, formatCurrency, thisMonth, today } from "../utils/storage";
 import { CATEGORIES } from "../data/tips";
+import { dbIncome } from "../lib/db";
+import { getSb } from "../lib/supabase";
 
 const PHRASES = [
   "Cada real guardado é um passo para a liberdade 💪",
@@ -72,12 +75,20 @@ function GoalProgressCard({ goal, onNavigate }) {
   );
 }
 
-export default function Dashboard({ onAdd, onViewAll, onViewGoals }) {
+export default function Dashboard({ isCloud, onAdd, onViewAll, onViewGoals }) {
   const { dark, toggle } = useTheme();
+  const auth     = isCloud ? useAuth() : null;
   const profile  = storage.getProfile();
   const expenses = storage.getExpenses();
   const goals    = storage.getGoals();
   const month    = thisMonth();
+
+  const [showIncModal, setShowIncModal] = useState(false);
+  const [incForm, setIncForm]           = useState({ description: "", amount: "" });
+  const [incSaving, setIncSaving]       = useState(false);
+  const [extraIncome, setExtraIncome]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`lf_inc_${thisMonth()}`) || "[]"); } catch { return []; }
+  });
 
   const phrase = useMemo(() => PHRASES[new Date().getDay() % PHRASES.length], []);
 
@@ -85,10 +96,27 @@ export default function Dashboard({ onAdd, onViewAll, onViewGoals }) {
     () => expenses.filter((e) => e.date.startsWith(month)),
     [expenses, month]
   );
-  const totalSpent = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const available  = profile.income - totalSpent;
-  const savingGoal = profile.income * (profile.savingGoalPct / 100);
-  const savedSoFar = Math.max(0, available);
+  const totalSpent      = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalExtraInc   = extraIncome.reduce((s, i) => s + i.amount, 0);
+  const available       = profile.income + totalExtraInc - totalSpent;
+  const savingGoal      = profile.income * (profile.savingGoalPct / 100);
+
+  const handleAddIncome = async () => {
+    if (!incForm.description || !incForm.amount) return;
+    setIncSaving(true);
+    const entry = { description: incForm.description, amount: parseFloat(incForm.amount), date: today() };
+    if (isCloud && auth?.user) {
+      await dbIncome.add(auth.user.id, entry);
+    } else {
+      const list = JSON.parse(localStorage.getItem(`lf_inc_${month}`) || "[]");
+      const updated = [...list, { id: Date.now(), ...entry }];
+      localStorage.setItem(`lf_inc_${month}`, JSON.stringify(updated));
+      setExtraIncome(updated);
+    }
+    setIncForm({ description: "", amount: "" });
+    setShowIncModal(false);
+    setIncSaving(false);
+  };
 
   const recentFive = useMemo(
     () => [...expenses].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5),
@@ -133,18 +161,39 @@ export default function Dashboard({ onAdd, onViewAll, onViewGoals }) {
             ? "linear-gradient(135deg, #1a2200 0%, #0e1a00 100%)"
             : "linear-gradient(135deg, #e8f9b0 0%, #d4f56a 100%)",
           border: "none",
+          position: "relative",
         }}>
-          <p style={{ margin: "0 0 4px", fontSize: 12, color: dark ? "rgba(197,241,53,0.6)" : "#5a7a00", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>
-            Saldo disponível este mês
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <p style={{ margin: "0 0 4px", fontSize: 12, color: dark ? "rgba(197,241,53,0.6)" : "#5a7a00", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>
+              Saldo disponível este mês
+            </p>
+            <button
+              onClick={() => setShowIncModal(true)}
+              title="Adicionar renda extra"
+              style={{
+                background: dark ? "rgba(184,242,60,0.15)" : "rgba(45,90,0,0.10)",
+                border: dark ? "1px solid rgba(184,242,60,0.3)" : "1px solid rgba(45,90,0,0.15)",
+                borderRadius: 10, width: 32, height: 32, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, color: dark ? "#C5F135" : "#2d5a00", flexShrink: 0,
+              }}
+            >+</button>
+          </div>
           <p style={{ margin: "0 0 16px", fontSize: 40, fontWeight: 900, letterSpacing: "-1.5px", color: available < 0 ? "var(--red)" : dark ? "#C5F135" : "#2d5a00", lineHeight: 1.1 }}>
             {formatCurrency(available)}
           </p>
-          <div style={{ display: "flex", gap: 16 }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             <div>
               <p style={{ margin: 0, fontSize: 11, color: dark ? "rgba(255,255,255,0.4)" : "#5a7a00" }}>Renda</p>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: dark ? "var(--green)" : "#1a5200" }}>{formatCurrency(profile.income)}</p>
             </div>
+            {totalExtraInc > 0 && <>
+              <div style={{ width: 1, background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }} />
+              <div>
+                <p style={{ margin: 0, fontSize: 11, color: dark ? "rgba(255,255,255,0.4)" : "#5a7a00" }}>Renda extra</p>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: dark ? "var(--green)" : "#1a5200" }}>+{formatCurrency(totalExtraInc)}</p>
+              </div>
+            </>}
             <div style={{ width: 1, background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)" }} />
             <div>
               <p style={{ margin: 0, fontSize: 11, color: dark ? "rgba(255,255,255,0.4)" : "#5a7a00" }}>Gastos</p>
@@ -158,6 +207,66 @@ export default function Dashboard({ onAdd, onViewAll, onViewGoals }) {
           </div>
         </div>
       </div>
+
+      {/* ── MODAL RENDA EXTRA ── */}
+      {showIncModal && (
+        <>
+          <div
+            onClick={() => setShowIncModal(false)}
+            className="backdrop-enter"
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100 }}
+          />
+          <div
+            className="sheet-enter"
+            style={{
+              position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+              width: "100%", maxWidth: 430, background: "var(--surface)",
+              borderRadius: "24px 24px 0 0", padding: "24px 20px 40px", zIndex: 101,
+            }}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 99, background: "var(--border-strong)", margin: "0 auto 20px" }} />
+            <p style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "var(--text-1)" }}>+ Adicionar Renda</p>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-2)" }}>Valor extra que entrou além do salário</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Descrição</p>
+                <input
+                  className="lf-input"
+                  placeholder="Ex: Freela, venda, presente..."
+                  value={incForm.description}
+                  onChange={(e) => setIncForm({ ...incForm, description: e.target.value })}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Valor (R$)</p>
+                <input
+                  className="lf-input"
+                  type="number"
+                  placeholder="0,00"
+                  value={incForm.amount}
+                  onChange={(e) => setIncForm({ ...incForm, amount: e.target.value })}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                <button
+                  onClick={() => setShowIncModal(false)}
+                  style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px", fontSize: 15, fontWeight: 600, cursor: "pointer", color: "var(--text-2)" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAddIncome}
+                  disabled={incSaving}
+                  style={{ flex: 2, background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 14, padding: "14px", fontSize: 15, fontWeight: 800, cursor: "pointer" }}
+                >
+                  {incSaving ? "Salvando..." : "Adicionar ✓"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── FRASE MOTIVACIONAL ── */}
       <div style={{ padding: "0 20px 16px" }}>
