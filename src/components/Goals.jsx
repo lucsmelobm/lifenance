@@ -14,6 +14,8 @@ export default function Goals({ onUpdate }) {
   const [depositId, setDepositId] = useState(null);
   const [depositAmt, setDepositAmt] = useState("");
   const [form, setForm] = useState({ name: "", target: "", icon: "✈️", deadline: "" });
+  const [editId, setEditId]   = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [error, setError] = useState("");
 
   const save = (list) => { storage.saveGoals(list); setGoals(list); onUpdate?.(); };
@@ -25,6 +27,19 @@ export default function Goals({ onUpdate }) {
     setForm({ name: "", target: "", icon: "✈️", deadline: "" });
     setShowForm(false);
     setError("");
+  };
+
+  const startEdit = (g) => {
+    setEditId(g.id);
+    setEditForm({ name: g.name, target: String(g.target), icon: g.icon, deadline: g.deadline || "" });
+    setDepositId(null);
+  };
+
+  const handleEdit = () => {
+    if (!editForm.name.trim()) return;
+    if (!editForm.target || parseFloat(editForm.target) <= 0) return;
+    save(goals.map((g) => g.id === editId ? { ...g, name: editForm.name.trim(), target: parseFloat(editForm.target), icon: editForm.icon, deadline: editForm.deadline } : g));
+    setEditId(null);
   };
 
   const handleDeposit = (id) => {
@@ -118,6 +133,27 @@ export default function Goals({ onUpdate }) {
 
             return (
               <div key={g.id} style={{ ...card, borderLeft: `4px solid ${done ? "var(--green)" : "var(--accent)"}` }}>
+
+                {/* Edit form inline */}
+                {editId === g.id ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>Editar meta</p>
+                    <input className="lf-input" placeholder="Nome da meta" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} autoFocus />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input className="lf-input" type="number" placeholder="Valor (R$)" value={editForm.target} onChange={(e) => setEditForm({ ...editForm, target: e.target.value })} style={{ flex: 1 }} />
+                      <input className="lf-input" type="date" value={editForm.deadline} onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })} />
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {ICONS.map((icon) => (
+                        <button key={icon} onClick={() => setEditForm({ ...editForm, icon })} style={{ width: 36, height: 36, borderRadius: 10, fontSize: 18, background: editForm.icon === icon ? "var(--accent)" : "var(--surface-2)", border: editForm.icon === icon ? "none" : "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={handleEdit} style={{ flex: 1, background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Salvar</button>
+                      <button onClick={() => setEditId(null)} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", cursor: "pointer", color: "var(--text-2)", fontWeight: 600 }}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
                 <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 14 }}>
                   <span style={{ fontSize: 32, marginRight: 12 }}>{g.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -128,9 +164,12 @@ export default function Goals({ onUpdate }) {
                       </p>
                     )}
                   </div>
+                  <button onClick={() => startEdit(g)} style={{ background: "none", border: "none", color: "var(--text-2)", fontSize: 14, cursor: "pointer", padding: "2px 6px", marginRight: 4 }} title="Editar">✏️</button>
                   <button onClick={() => save(goals.filter((x) => x.id !== g.id))} style={{ background: "none", border: "none", color: "var(--text-3)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
                 </div>
+                )}
 
+                {editId !== g.id && (<>
                 {/* Progress */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -175,6 +214,7 @@ export default function Goals({ onUpdate }) {
                     </button>
                   </div>
                 )}
+                </>)}
               </div>
             );
           })}
