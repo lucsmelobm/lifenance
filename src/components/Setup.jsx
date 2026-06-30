@@ -9,14 +9,27 @@ export default function Setup({ onDone }) {
   const [error, setError]   = useState("");
 
   const handleConnect = async () => {
-    if (!url.includes("supabase.co") || !key.startsWith("eyJ")) {
-      return setError("URL ou chave inválida. Verifique e tente de novo.");
+    setError("");
+    let cleanUrl = url.trim().replace(/\/$/, "");
+    let cleanKey = key.trim();
+
+    // Auto-corrige se colou a URL do dashboard em vez da URL da API
+    const dashMatch = cleanUrl.match(/supabase\.com\/dashboard\/project\/([a-z0-9-]+)/);
+    if (dashMatch) cleanUrl = `https://${dashMatch[1]}.supabase.co`;
+
+    if (!cleanUrl.startsWith("https://") || !cleanUrl.includes("supabase.co")) {
+      return setError("URL inválida. Deve ser algo como: https://xxxxx.supabase.co\n(encontre em Settings → API no seu projeto, não na barra do browser)");
     }
+    // Aceita JWT antigo (eyJ...) e novo formato publishable (sb_publishable_...)
+    if (!cleanKey.startsWith("eyJ") && !cleanKey.startsWith("sb_publishable_") && !cleanKey.startsWith("sb_secret_")) {
+      return setError("Chave inválida. No Supabase: Settings → API → seção 'API Keys' → copie a chave 'anon / public'.");
+    }
+
     try {
-      configure(url, key);
+      configure(cleanUrl, cleanKey);
       onDone();
-    } catch {
-      setError("Não consegui conectar. Verifique os dados.");
+    } catch (err) {
+      setError("Erro ao conectar: " + (err?.message || "verifique as credenciais."));
     }
   };
 
@@ -93,17 +106,45 @@ export default function Setup({ onDone }) {
 
       {step === 3 && (
         <div style={s.card}>
-          <p style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>3. Cole as credenciais</p>
-          <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--text-2)" }}>No Supabase: <strong>Settings → API</strong>. Copie a <strong>Project URL</strong> e a chave <strong>anon public</strong>.</p>
-          {error && <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 12, fontWeight: 500 }}>{error}</p>}
+          <p style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>3. Cole as credenciais</p>
+
+          {/* Instructions box */}
+          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, padding: "14px", marginBottom: 14 }}>
+            <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700, color: "var(--text-1)" }}>Onde encontrar no Supabase:</p>
+            <ol style={{ margin: 0, padding: "0 0 0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+              <li style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}>
+                Abra seu projeto no Supabase
+              </li>
+              <li style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}>
+                Clique em <strong style={{ color: "var(--text-1)" }}>Settings</strong> (ícone de engrenagem na barra lateral esquerda)
+              </li>
+              <li style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}>
+                Clique em <strong style={{ color: "var(--text-1)" }}>Data API</strong> ou <strong style={{ color: "var(--text-1)" }}>API</strong>
+              </li>
+              <li style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}>
+                <strong style={{ color: "var(--accent-fg)", background: "var(--accent)", padding: "1px 6px", borderRadius: 6 }}>Project URL</strong> — formato: <code style={{ fontSize: 11 }}>https://xxxxx.supabase.co</code>
+              </li>
+              <li style={{ fontSize: 13, color: "var(--text-2)", lineHeight: 1.5 }}>
+                <strong style={{ color: "var(--text-1)" }}>Anon key</strong> — seção "API Keys", copie a chave <strong>anon</strong> / <strong>public</strong>
+              </li>
+            </ol>
+          </div>
+
+          {error && (
+            <div style={{ background: "rgba(229,57,53,0.08)", border: "1px solid rgba(229,57,53,0.25)", borderRadius: 12, padding: "10px 14px", marginBottom: 12 }}>
+              <p style={{ color: "var(--red)", fontSize: 13, fontWeight: 500, margin: 0, whiteSpace: "pre-line" }}>{error}</p>
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
-              <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Project URL</p>
-              <input className="lf-input" placeholder="https://xxxx.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
+              <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Project URL</p>
+              <input className="lf-input" placeholder="https://xxxxx.supabase.co" value={url} onChange={(e) => setUrl(e.target.value)} />
+              <p style={{ margin: "5px 0 0", fontSize: 11, color: "var(--text-3)" }}>⚠️ Não cole a URL do browser — copie do campo "Project URL" dentro de Settings → API</p>
             </div>
             <div>
-              <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 600, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Anon Public Key</p>
-              <input className="lf-input" placeholder="eyJhbGciOiJ..." value={key} onChange={(e) => setKey(e.target.value)} />
+              <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: 0.4 }}>Anon Public Key</p>
+              <input className="lf-input" placeholder="eyJhbGciOiJ... ou sb_publishable_..." value={key} onChange={(e) => setKey(e.target.value)} />
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button onClick={() => setStep(2)} style={{ flex: 1, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 600, cursor: "pointer", color: "var(--text-2)" }}>← Voltar</button>
