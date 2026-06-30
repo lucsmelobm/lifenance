@@ -91,7 +91,7 @@ function AppInner() {
   return (
     <div style={s.root}>
       <div style={s.content} className="no-scrollbar">
-        {tab === "home"     && <Dashboard  key={`h-${tick}`} onAdd={() => setShowAdd(true)} onViewAll={() => setTab("expenses")} />}
+        {tab === "home"     && <Dashboard  key={`h-${tick}`} onAdd={() => setShowAdd(true)} onViewAll={() => setTab("expenses")} onViewGoals={() => setTab("goals")} />}
         {tab === "expenses" && <Expenses   key={`e-${tick}`} onUpdate={refresh} onBack={() => setTab("home")} />}
         {tab === "goals"    && <Goals      key={`g-${tick}`} onUpdate={refresh} />}
         {tab === "daily"    && <Daily      key={`d-${tick}`} onUpdate={refresh} />}
