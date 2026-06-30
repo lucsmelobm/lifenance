@@ -13,23 +13,17 @@ export default function Setup({ onDone }) {
     let cleanUrl = url.trim().replace(/\/$/, "");
     let cleanKey = key.trim();
 
-    // Auto-corrige se colou a URL do dashboard em vez da URL da API
+    if (!cleanUrl || !cleanKey) return setError("Preencha a URL e a chave.");
+
+    // Auto-corrige URL do dashboard → URL da API
     const dashMatch = cleanUrl.match(/supabase\.com\/dashboard\/project\/([a-z0-9-]+)/);
     if (dashMatch) cleanUrl = `https://${dashMatch[1]}.supabase.co`;
-
-    if (!cleanUrl.startsWith("https://") || !cleanUrl.includes("supabase.co")) {
-      return setError("URL inválida. Deve ser algo como: https://xxxxx.supabase.co\n(encontre em Settings → API no seu projeto, não na barra do browser)");
-    }
-    // Aceita JWT antigo (eyJ...) e novo formato publishable (sb_publishable_...)
-    if (!cleanKey.startsWith("eyJ") && !cleanKey.startsWith("sb_publishable_") && !cleanKey.startsWith("sb_secret_")) {
-      return setError("Chave inválida. No Supabase: Settings → API → seção 'API Keys' → copie a chave 'anon / public'.");
-    }
 
     try {
       configure(cleanUrl, cleanKey);
       onDone();
     } catch (err) {
-      setError("Erro ao conectar: " + (err?.message || "verifique as credenciais."));
+      setError("Erro: " + (err?.message || "verifique os dados e tente de novo."));
     }
   };
 
